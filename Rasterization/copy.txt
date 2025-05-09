@@ -1,0 +1,328 @@
+from PIL import Image
+import sys
+import numpy as np
+import scanline
+
+
+
+filename = ""
+red = []
+green= []
+blue = []
+alpha = []
+x_coor = []
+y_coor = []
+z_coor = []
+w_coor = []
+coor = []
+
+draw = 0
+width = 0
+height = 0
+value = 0
+
+# mode setting
+depth = False
+z_buffer = None
+x_y_refresh = None
+sRGB = False
+hyp = False
+fsaa = False
+fsaa_level = 0
+cull = False
+decals = False
+frustum = False
+
+# uniform state
+texture_file = None
+
+matrix = None
+
+# buffer povision
+position_size = 0
+color_size = 0
+texcoord_size = 2
+texcoord = []
+
+point_size = 1
+point_size_array = []
+
+element_array=[]
+
+
+file= sys.argv[1]
+f = open(file, "r")
+#image = Image.new("RGBA", (width, height), (0,0,0,0))
+image = None
+
+for word in f:
+    #print(word)
+    # 7.1 PNG
+    if "png" in word:
+        dimension = word.split()
+        width = int(dimension[1])
+        height = int(dimension[2])
+        filename = dimension[-1]
+    # 7.2 Mode setting
+
+    elif "depth" in word:                                        # core
+        depth = True
+        z_buffer = np.full((width, height), -1000)
+        x_y_refresh = np.full([width, height], np.nan, dtype=np.ndarray)
+    
+    elif "sRGB" in word:                                         # core
+        sRGB = True
+
+    elif "hyp" in word:                                          # core
+        hyp = True
+
+    elif "fsaa" in word:
+        fsaa_option = word.split()
+        fsaa = True
+        fsaa_level = fsaa_option[-1]
+    
+    elif "cull" in word:
+        cull = True
+    
+    elif "decals" in word:
+        decals = True
+
+    elif "frustum" in word:
+        frustum = True
+
+    # 7.3 uniform state
+
+    elif "texture" in word:
+        texture_option = word.split()
+        texture_file = texture_option[-1]
+
+    elif "uniformMatrix " in word:
+        matrix_option = word.split()
+        matrix = np.array(matrix_option[1:len(matrix_option)]).reshape(4,4)
+        coor = matrix @ coor
+
+
+    # 7.4 Buffer provision
+
+    elif "position" == word[0:8]:
+        print(word)
+
+        coordinate = word.split()
+        position_size = int(coordinate[1])
+        x_coor.clear()
+        y_coor.clear()
+        z_coor.clear()
+        w_coor.clear()
+        if (position_size == 2):
+            for num in range (2,len(coordinate)):
+                if (num % 2 == 0):
+                    x_coor.append(float(coordinate[num]))
+                elif (num % 2 == 1):
+                    y_coor.append(float(coordinate[num]))
+            z_coor = [0.0 for i in range(len(x_coor))]
+            w_coor = [1.0 for i in range(len(x_coor))]
+
+        elif (position_size == 3):
+            for num in range (2,len(coordinate)):
+                if (num % 3 == 2):
+                    x_coor.append(float(coordinate[num]))
+                elif (num % 3 == 0):
+                    y_coor.append(float(coordinate[num]))
+                elif (num % 3 == 1):
+                    z_coor.append(float(coordinate[num]))
+            w_coor = [1.0 for i in range(len(x_coor))]
+        
+        elif (position_size == 4):
+            for num in range (2,len(coordinate)):
+                if (num % 4 == 2):
+                    x_coor.append(float(coordinate[num]))
+                elif (num % 4 == 3):
+                    y_coor.append(float(coordinate[num]))
+                elif (num % 4 == 0):
+                    z_coor.append(float(coordinate[num]))
+                elif (num % 4 == 1):
+                    w_coor.append(float(coordinate[num]))
+        # division by  w + viewpoint transformation
+        for i in range(len(x_coor)):
+            x_coor[i] = ((x_coor[i]+w_coor[i])) * width/(2*w_coor[i])
+            y_coor[i] = ((y_coor[i]+w_coor[i])) * height/(2*w_coor[i])
+            z_coor[i] = z_coor[i]/w_coor[i]
+            w_coor[i] = 1/w_coor[i]
+        
+
+
+
+
+    elif "color" in word:
+        color_palette = word.split()
+        color_size = int(color_palette[1])
+        red.clear()
+        green.clear()
+        blue.clear()
+        alpha.clear()
+
+        if color_size == 3:
+            for x in range (2,len(color_palette)):
+                if (x % 3 == 2):
+                    red.append(round(float(color_palette[x])*255))
+                elif (x % 3 == 0):
+                    green.append(round(float(color_palette[x])*255))
+                elif (x % 3 == 1):
+                    blue.append(round(float(color_palette[x])*255))
+            alpha = [255 for i in range(len(red))]
+            image = Image.new("RGB", (width, height), (0,0,0))
+
+        elif color_size == 4:
+            for x in range (2,len(color_palette)):
+                if (x % 4 == 2):
+                    red.append(round(float(color_palette[x])))
+                elif (x % 4 == 3):
+                    green.append(round(float(color_palette[x])))
+                elif (x % 4 == 0):
+                    blue.append(round(float(color_palette[x])))
+                elif (x % 4 == 1):
+                    alpha.append(round(float(color_palette[x]))) 
+            image = Image.new("RGBA", (width, height), (0,0,0,0))
+
+    elif "texcoord" in word:
+        texcoord_option = word.split()
+        texcoord_size = int(texcoord_option[1])
+        texcoord = texcoord_option[2:len(texcoord_option)]
+
+    elif "pointsize" in word:
+        pointsize_option = word.split()
+        point_size = int(pointsize_option[1])
+        point_size_array = pointsize_option[2:len(pointsize_option)]
+    
+    elif "elements" in word:                                        # core
+        element_option = word.split()
+        element_array = element_option[1:len(element_option)]
+
+    # 7.5 drawing
+
+    elif "drawArraysTriangles" in word: 
+        print("\ndrawing triangles")
+        req = word.split()
+        first = int(req[1])
+        count = int(int(req[2])/3)
+        for i in range(int(count)):
+            print(f"\ni is {i}")
+            p = first+3*i
+            #print(p)
+            #print(x_coor)
+            #print(x_coor[0])
+            pt1 = [x_coor[p], y_coor[p], z_coor[p], w_coor[p], red[p]*w_coor[p], green[p]*w_coor[p], blue[p]*w_coor[p], alpha[p]*w_coor[p]]
+            pt2 = [x_coor[p+1], y_coor[p+1], z_coor[p+1], w_coor[p+1], red[p+1]*w_coor[p+1], 
+                   green[p+1]*w_coor[p+1], blue[p+1]*w_coor[p+1], alpha[p+1]*w_coor[p+1]]
+            pt3 = [x_coor[p+2], y_coor[p+2], z_coor[p+2], w_coor[p+2], red[p+2]*w_coor[p+2], 
+                   green[p+2]*w_coor[p+2], blue[p+2]*w_coor[p+2], alpha[p+2]*w_coor[p+2]]
+            total_pts = scanline.scanline(pt1, pt2, pt3)
+            print("scanline completed")
+            count = 0
+            for j in total_pts:
+                for l in j:
+                    if ((int(l[0]) >= width) | (int(l[1]) >= height)):
+                        print(f"skipped x and y: {int(l[0])}, {int(l[1])}")
+                        continue
+
+                    l[4] = int(l[4]/l[3])
+                    l[5] = int(l[5]/l[3])
+                    l[6] = int(l[6]/l[3])
+                    l[7] = int(l[7]/l[3])
+
+                    print(f"drawing {int(l[0])}, {int(l[1])}, ({l[4]},{l[5]},{l[6]})") #, ({r},{g},{b}, {alpha[p % len(alpha)]}
+                    if depth:
+                        if l[2] > z_buffer[int(l[0])][int(l[1])]:
+                            z_buffer[int(l[0])][int(l[1])] = l[2]
+                            print(f"{int(l[0])}, {int(l[1])}")
+                            print(l.dtype)
+                            print(x_y_refresh.dtype)
+                            x_y_refresh[int(l[0])][int(l[1])] = l
+                    else:
+                        if color_size == 3:
+                            image.im.putpixel(  (int(l[0]), int(l[1])), (l[4],l[5],l[6])  )
+
+                        else:
+                            image.im.putpixel(  (int(l[0]), int(l[1])), (l[4],l[5],l[6],l[7])  )
+                    count +=1
+                if depth:
+                    r,c = x_y_refresh.shape
+                    for i in x_y_refresh:
+                        for j in i:
+                            print(j)
+                            if isinstance(j, np.ndarray):
+                                if color_size == 3:
+                                    image.im.putpixel(  (int(j[0]), int(j[1])), (int(j[4]),int(j[5]),int(j[6]))  )
+                                else:
+                                    image.im.putpixel(  (int(j[0]), int(j[1])), (int(j[4]),int(j[5]),int(j[6]), int(j[7]))  )
+            print(f"finished drawing triangle, pixels drawn: {count}\n")
+
+
+    elif "drawElementsTriangles" in word:                           # core
+        print("\ndrawing element triangles")
+        req = word.split()
+        count = int(int(req[1])/3)
+        offset = int(req[2])
+        for i in range(int(count)):
+            print(f"\ni is {i}")
+            p = int(element_array[offset+3*i])
+            p1 = int(element_array[offset+3*i])
+            p2 = int(element_array[offset+3*i+1])
+            p3 =int(element_array[offset+3*i+2])
+            print("p is ",p)
+            print(count)
+            print("x_coor length: ", len(x_coor))
+            print("element size: ", len(element_array))
+            #if (p+2 >=70):
+            #    continue
+
+            pt1 = [x_coor[p1], y_coor[p1], z_coor[p1], w_coor[p1], red[p1]*w_coor[p1], green[p1]*w_coor[p1], blue[p1]*w_coor[p1], alpha[p1]*w_coor[p1]]
+            pt2 = [x_coor[p2], y_coor[p2], z_coor[p2], w_coor[p2], red[p2]*w_coor[p2], green[p2]*w_coor[p2], blue[p2]*w_coor[p2], alpha[p2]*w_coor[p2]]
+            pt3 = [x_coor[p3], y_coor[p3], z_coor[p3], w_coor[p3], red[p3]*w_coor[p3], green[p3]*w_coor[p3], blue[p3]*w_coor[p3], alpha[p3]*w_coor[p3]]
+            total_pts = scanline.scanline(pt1, pt2, pt3)
+            print("scanline completed")
+            counter = 0
+            for j in total_pts:
+                for l in j:
+                    if ((int(l[0]) >= width) | (int(l[1]) >= height)):
+                        print(f"skipped x and y: {int(l[0])}, {int(l[1])}")
+                        continue
+                    l[4] = int(l[4]/l[3])
+                    l[5] = int(l[5]/l[3])
+                    l[6] = int(l[6]/l[3])
+                    print(f"drawing {int(l[0])}, {int(l[1])}, ({r},{g},{b})") #, ({r},{g},{b}, {alpha[p % len(alpha)]}
+                    if depth:
+                        if l[2] > z_buffer[int(l[0])][int(l[1])]:
+                            z_buffer[int(l[0])][int(l[1])] = l[2]
+                            print(f"{int(l[0])}, {int(l[1])}")
+                            x_y_refresh[int(l[0])][int(l[1])] = l
+                    else:
+                        if color_size == 3:
+                            image.im.putpixel(  (int(l[0]), int(l[1])), (l[4],l[5],l[6])  )
+                        else:
+                            l[7] = int(l[7]/l[3])
+                            image.im.putpixel(  (int(l[0]), int(l[1])), (l[4],l[5],l[6],l[7])  )
+                    counter +=1
+                if depth:
+                    for c in np.nditer(x_y_refresh):
+                        if c != np.nan:
+                            if color_size == 3:
+                                image.im.putpixel(  (int(l[0]), int(l[1])), (l[4],l[5],l[6])  )
+                            else:
+                                l[7] = int(l[7]/l[3])
+                                image.im.putpixel(  (int(l[0]), int(l[1])), (l[4],l[5],l[6],l[7])  )
+            print(f"finished drawing element triangle, pixels drawn: {counter}\n")
+
+    elif "drawArraysPoints" in word:                           # core
+        req = word.split()
+        first = word[1]
+        count = word[2]
+
+'''
+for p in range (0, draw):
+    image.im.putpixel((x_coor[p], y_coor[p]), (red[p % len(red)], green[p % len(green)], blue[p % len(blue)], alpha[p % len(alpha)]))
+'''
+
+
+image.save(filename)
+
