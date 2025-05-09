@@ -1,0 +1,50 @@
+// Online Javascript Editor for free
+let max = 2
+let min = -2
+let position = []
+let velocity = []
+let radius = []
+let max_d = -1
+let ball = 30
+// position set to random coordinate, velocity set randomly at start
+for (let i = 0; i < ball; i++){
+    //console.log(" start ",velocity)
+    let p1 = Math.random()*(2*max) +min 
+    let p2 = Math.random()*(max+1) +(min*0.5) 
+    let p3 = Math.random()*(2*max) +min 
+    let v1 = (Math.random()*(2*max) +min)*0.001 
+    let v2 = (Math.random()*(2*max) +min) *0.001
+    let v3 = (Math.random()*(2*max) +min )*0.001
+    let pos = [p1, p2,p3]
+    let vel = [v1,v2,v3]
+    //let vel = [i,i,i]
+    //position.push([Math.random()*((max-min)+min), Math.random()*((max-min)+min), Math.random()*((max-min)+min)])
+    velocity.push(vel)
+    position.push(pos)
+    //time.push(0)
+    let r= (Math.random()+.25) * (0.75/ball**(1/3))
+    if (r*2 > max_d){
+        max_d = r*2
+    }
+    radius.push(r)
+    //window.mass.push(4/3 * Math.PI*r*r*r)
+}
+
+let spacing = Math.ceil(max_d)
+let coor = max-min
+
+
+let space = new Array(coor*coor*coor)
+for (let i = 0; i < space.length; i++){
+    space[i] = []
+}
+for (let i = 0; i < position.length; i++){
+    px = Math.floor((position[i][0]-min)/spacing)
+    py = Math.floor((position[i][1]-min)/spacing)
+    pz = Math.floor((position[i][2]-min)/spacing)
+    console.log(px,py,pz)
+    let num = (px*4+py)*4+pz
+    console.log(num)
+    space[num].push(position[i])
+}
+console.log(space)

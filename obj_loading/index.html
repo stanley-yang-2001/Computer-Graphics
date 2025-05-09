@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>OBJ</title>
+    <script type = "module" src="code.js"></script>
+    <style>
+        body {
+            margin: 0; border: none; padding: 0;
+            display: flex; flex-direction: column;
+            width: 100%; height: 100vh;
+        }
+        .controls {
+            flex: 0 0 auto;
+        }
+        .controls > * { margin: 1em; }
+        .display {
+            flex-grow: 1;
+            line-height: 0rem;
+        }
+        </style>
+    </head>
+    <body>
+    <form class="controls" action="javascript:void(0);">
+        <label>File path: <input id="file" type="text"/></label>
+        <label>Image path: <input id="image" type="text"/></label>
+        <input id="submit" type="submit" value="Load OBJ"/>
+    </form>
+    <div class="display">
+        <canvas width="300" height="300"></canvas>
+    </div>
+    </body>
+    </html>
